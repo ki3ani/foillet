@@ -2,6 +2,37 @@
 pragma solidity ^0.8.20;
 
 contract Bookstore {
+        // --- Listing helpers ---
+        // Returns all active (not sold/cancelled) book IDs
+        function getActiveBookIds() public view returns (uint256[] memory) {
+            uint256 count = 0;
+            for (uint256 i = 0; i < books.length; i++) {
+                if (!books[i].isSold && !books[i].isCancelled) {
+                    count++;
+                }
+            }
+            uint256[] memory ids = new uint256[](count);
+            uint256 idx = 0;
+            for (uint256 i = 0; i < books.length; i++) {
+                if (!books[i].isSold && !books[i].isCancelled) {
+                    ids[idx++] = i;
+                }
+            }
+            return ids;
+        }
+
+        // Returns a paginated slice of active book IDs
+        function getActiveBookIdsSlice(uint256 start, uint256 limit) public view returns (uint256[] memory) {
+            uint256[] memory all = getActiveBookIds();
+            if (start >= all.length) return new uint256[](0);
+            uint256 end = start + limit;
+            if (end > all.length) end = all.length;
+            uint256[] memory slice = new uint256[](end - start);
+            for (uint256 i = start; i < end; i++) {
+                slice[i - start] = all[i];
+            }
+            return slice;
+        }
     // --- Pausing ---
     bool public paused;
     event Paused(bool isPaused);
