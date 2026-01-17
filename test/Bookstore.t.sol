@@ -58,7 +58,7 @@ contract BookstoreTest is Test {
 
         assertEq(seller.balance, sellerBefore + 1 ether);
 
-        (, , , , , address gotBuyer, bool isSold, bool isCancelled) = bs.getBook(0);
+        (,,,,, address gotBuyer, bool isSold, bool isCancelled) = bs.getBook(0);
         assertEq(gotBuyer, buyer);
         assertTrue(isSold);
         assertTrue(!isCancelled);
@@ -96,7 +96,7 @@ contract BookstoreTest is Test {
         vm.prank(seller);
         bs.updateBookPrice(0, 2 ether);
 
-        (, , , uint256 price, , , , ) = bs.getBook(0);
+        (,,, uint256 price,,,,) = bs.getBook(0);
         assertEq(price, 2 ether);
     }
 
