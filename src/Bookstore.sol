@@ -125,7 +125,7 @@ contract Bookstore {
         uint256 amount = pendingWithdrawals[msg.sender];
         require(amount > 0, "No funds to withdraw");
         pendingWithdrawals[msg.sender] = 0;
-        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        (bool ok,) = payable(msg.sender).call{value: amount}("");
         require(ok, "Withdraw transfer failed");
     }
 
