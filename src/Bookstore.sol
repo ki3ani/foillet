@@ -2,6 +2,11 @@
 pragma solidity ^0.8.20;
 
 contract Bookstore {
+    // --- Admin ---
+    address public owner;
+    uint256 public feeBps; // fee in basis points (e.g. 200 = 2%)
+
+    event FeeUpdated(uint256 oldFee, uint256 newFee);
     // --- Reentrancy Guard ---
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
@@ -50,6 +55,23 @@ contract Bookstore {
 
     // --- 4. THE ACTIONS ---
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        feeBps = 200; // default 2%
+    }
+
+    function setFeeBps(uint256 newFeeBps) public onlyOwner {
+        require(newFeeBps <= 1000, "Fee too high"); // max 10%
+        uint256 oldFee = feeBps;
+        feeBps = newFeeBps;
+        emit FeeUpdated(oldFee, newFeeBps);
+    }
+
     // POST /books
     function createBook(string memory _title, string memory _author, uint256 _price) public {
         require(_price > 0, "Price must be > 0");
@@ -87,8 +109,13 @@ contract Bookstore {
         book.isSold = true;
         book.buyer = msg.sender;
 
-        // Store ETH for seller to withdraw later
-        pendingWithdrawals[book.seller] += msg.value;
+        // Calculate fee
+        uint256 fee = (msg.value * feeBps) / 10000;
+        uint256 sellerAmount = msg.value - fee;
+
+        // Store ETH for seller and owner to withdraw later
+        pendingWithdrawals[book.seller] += sellerAmount;
+        pendingWithdrawals[owner] += fee;
 
         emit BookSold(_id, msg.sender, msg.value);
     }
@@ -98,7 +125,7 @@ contract Bookstore {
         uint256 amount = pendingWithdrawals[msg.sender];
         require(amount > 0, "No funds to withdraw");
         pendingWithdrawals[msg.sender] = 0;
-        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        (bool ok,) = payable(msg.sender).call{value: amount}("");
         require(ok, "Withdraw transfer failed");
     }
 
