@@ -27,10 +27,10 @@ contract Bookstore {
         uint256 id;
         string title;
         string author;
-        uint256 price;   // Price in Wei (smallest unit of ETH)
-        address seller;  // Who is selling it
-        address buyer;   // Who bought it (zero if unsold)
-        bool isSold;     // Is it available?
+        uint256 price; // Price in Wei (smallest unit of ETH)
+        address seller; // Who is selling it
+        address buyer; // Who bought it (zero if unsold)
+        bool isSold; // Is it available?
         bool isCancelled;
     }
 
@@ -59,13 +59,12 @@ contract Bookstore {
             price: _price,
             seller: msg.sender,
             buyer: address(0),
-            isSold: false
-            ,
+            isSold: false,
             isCancelled: false
         });
 
         books.push(newBook);
-        
+
         emit BookCreated(newId, _title, _price);
     }
 
@@ -86,7 +85,7 @@ contract Bookstore {
         book.buyer = msg.sender;
 
         // Interaction (use call instead of deprecated transfer)
-        (bool ok, ) = payable(book.seller).call{value: msg.value}("");
+        (bool ok,) = payable(book.seller).call{value: msg.value}("");
         require(ok, "Payment transfer failed");
 
         emit BookSold(_id, msg.sender, msg.value);
