@@ -38,6 +38,9 @@ contract Bookstore {
     // List of all books
     Book[] public books;
 
+    // --- Withdraw pattern ---
+    mapping(address => uint256) public pendingWithdrawals;
+
     // --- 3. THE LOGS (Events) ---
     // We emit these so your Python script knows what happened
     event BookCreated(uint256 id, string title, uint256 price);
@@ -84,11 +87,19 @@ contract Bookstore {
         book.isSold = true;
         book.buyer = msg.sender;
 
-        // Interaction (use call instead of deprecated transfer)
-        (bool ok,) = payable(book.seller).call{value: msg.value}("");
-        require(ok, "Payment transfer failed");
+        // Store ETH for seller to withdraw later
+        pendingWithdrawals[book.seller] += msg.value;
 
         emit BookSold(_id, msg.sender, msg.value);
+    }
+
+    // Seller withdraws their funds
+    function withdraw() public nonReentrant {
+        uint256 amount = pendingWithdrawals[msg.sender];
+        require(amount > 0, "No funds to withdraw");
+        pendingWithdrawals[msg.sender] = 0;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "Withdraw transfer failed");
     }
 
     // --- Extra interactions for learning ---

@@ -56,12 +56,20 @@ contract BookstoreTest is Test {
         vm.prank(buyer);
         bs.buyBook{value: 1 ether}(0);
 
-        assertEq(seller.balance, sellerBefore + 1 ether);
+        // Seller's balance should NOT change until withdraw
+        assertEq(seller.balance, sellerBefore);
+        assertEq(bs.pendingWithdrawals(seller), 1 ether);
 
         (,,,,, address gotBuyer, bool isSold, bool isCancelled) = bs.getBook(0);
         assertEq(gotBuyer, buyer);
         assertTrue(isSold);
         assertTrue(!isCancelled);
+
+        // Seller withdraws
+        vm.prank(seller);
+        bs.withdraw();
+        assertEq(seller.balance, sellerBefore + 1 ether);
+        assertEq(bs.pendingWithdrawals(seller), 0);
     }
 
     function testBuyWrongValueReverts() public {
