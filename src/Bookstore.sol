@@ -126,6 +126,8 @@ contract Bookstore {
     // POST /books
     function createBook(string memory _title, string memory _author, uint256 _price) public {
         require(_price > 0, "Price must be > 0");
+        require(bytes(_title).length > 0, "Title required");
+        require(bytes(_author).length > 0, "Author required");
         require(!paused, "Paused");
         uint256 newId = books.length; // Auto-increment ID
 
@@ -148,6 +150,7 @@ contract Bookstore {
     // POST /books/{id}/buy
     // 'payable' means this function accepts Crypto
     function buyBook(uint256 _id) public payable nonReentrant {
+        require(msg.sender != books[_id].seller, "Seller cannot buy own book");
         require(!paused, "Paused");
         require(_id < books.length, "Invalid book id");
 
@@ -216,6 +219,8 @@ contract Bookstore {
     function updateBookMetadata(uint256 _id, string memory _title, string memory _author) public {
         require(!paused, "Paused");
         require(_id < books.length, "Invalid book id");
+        require(bytes(_title).length > 0, "Title required");
+        require(bytes(_author).length > 0, "Author required");
         Book storage book = books[_id];
         require(msg.sender == book.seller, "Only seller");
         require(!book.isSold, "Book already sold");
