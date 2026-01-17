@@ -129,10 +129,22 @@ send_tx(
 seller_balance_after = w3.eth.get_balance(seller_address)
 print(f"After:  Seller has {w3.from_wei(seller_balance_after, 'ether')} ETH")
 
-if seller_balance_after > seller_balance_before:
-    print("✅ SUCCESS! Seller got the money.")
-else:
-    print("❌ FAILURE! Seller did not get paid.")
+
+# Withdraw pattern: seller must claim funds
+print("\n🔎 Seller's pending withdrawals (should be > 0 ETH)...")
+pending = bookstore.functions.pendingWithdrawals(seller_address).call()
+print(f"Seller pendingWithdrawals: {w3.from_wei(pending, 'ether')} ETH")
+
+print("\n💸 Seller calls withdraw() to claim funds...")
+seller_balance_before_withdraw = w3.eth.get_balance(seller_address)
+tx_hash = bookstore.functions.withdraw().transact({'from': seller_address})
+w3.eth.wait_for_transaction_receipt(tx_hash)
+seller_balance_after_withdraw = w3.eth.get_balance(seller_address)
+print(f"Seller balance before withdraw: {w3.from_wei(seller_balance_before_withdraw, 'ether')} ETH")
+print(f"Seller balance after withdraw:  {w3.from_wei(seller_balance_after_withdraw, 'ether')} ETH")
+
+pending_after = bookstore.functions.pendingWithdrawals(seller_address).call()
+print(f"Seller pendingWithdrawals after withdraw: {w3.from_wei(pending_after, 'ether')} ETH")
 
 print("\n🔎 Reading Book #0 details after purchase...")
 book0_after_buy = bookstore.functions.getBook(0).call()
