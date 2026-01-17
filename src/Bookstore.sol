@@ -2,6 +2,11 @@
 pragma solidity ^0.8.20;
 
 contract Bookstore {
+    // --- Pausing ---
+    bool public paused;
+    event Paused(bool isPaused);
+    event BookMetadataUpdated(uint256 id, string newTitle, string newAuthor);
+    event BookDelisted(uint256 id);
     // --- Admin ---
     address public owner;
     uint256 public feeBps; // fee in basis points (e.g. 200 = 2%)
@@ -56,13 +61,28 @@ contract Bookstore {
     // --- 4. THE ACTIONS ---
 
     modifier onlyOwner() {
+        _onlyOwner();
+        _;
+    }
+
+    function _onlyOwner() internal {
         require(msg.sender == owner, "Only owner");
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Paused");
         _;
     }
 
     constructor() {
+        paused = false;
         owner = msg.sender;
         feeBps = 200; // default 2%
+    }
+
+    function setPaused(bool _paused) public onlyOwner {
+        paused = _paused;
+        emit Paused(_paused);
     }
 
     function setFeeBps(uint256 newFeeBps) public onlyOwner {
@@ -75,6 +95,7 @@ contract Bookstore {
     // POST /books
     function createBook(string memory _title, string memory _author, uint256 _price) public {
         require(_price > 0, "Price must be > 0");
+        require(!paused, "Paused");
         uint256 newId = books.length; // Auto-increment ID
 
         Book memory newBook = Book({
@@ -96,6 +117,7 @@ contract Bookstore {
     // POST /books/{id}/buy
     // 'payable' means this function accepts Crypto
     function buyBook(uint256 _id) public payable nonReentrant {
+        require(!paused, "Paused");
         require(_id < books.length, "Invalid book id");
 
         // Fetch the book from storage (Pointer to DB)
@@ -132,6 +154,7 @@ contract Bookstore {
     // --- Extra interactions for learning ---
 
     function updateBookPrice(uint256 _id, uint256 _newPrice) public {
+        require(!paused, "Paused");
         require(_id < books.length, "Invalid book id");
         require(_newPrice > 0, "Price must be > 0");
 
@@ -148,17 +171,37 @@ contract Bookstore {
     }
 
     function cancelBook(uint256 _id) public {
+        require(!paused, "Paused");
         require(_id < books.length, "Invalid book id");
-
         Book storage book = books[_id];
-
         require(msg.sender == book.seller, "Only seller");
         require(!book.isSold, "Book already sold");
         require(!book.isCancelled, "Already cancelled");
-
         book.isCancelled = true;
-
         emit BookCancelled(_id);
+    }
+
+    // Seller can update book metadata if not sold/cancelled
+    function updateBookMetadata(uint256 _id, string memory _title, string memory _author) public {
+        require(!paused, "Paused");
+        require(_id < books.length, "Invalid book id");
+        Book storage book = books[_id];
+        require(msg.sender == book.seller, "Only seller");
+        require(!book.isSold, "Book already sold");
+        require(!book.isCancelled, "Book cancelled");
+        book.title = _title;
+        book.author = _author;
+        emit BookMetadataUpdated(_id, _title, _author);
+    }
+
+    // Owner can delist any book (force cancel)
+    function delistBook(uint256 _id) public onlyOwner {
+        require(_id < books.length, "Invalid book id");
+        Book storage book = books[_id];
+        require(!book.isSold, "Book already sold");
+        require(!book.isCancelled, "Already cancelled");
+        book.isCancelled = true;
+        emit BookDelisted(_id);
     }
 
     function getBook(uint256 _id)
