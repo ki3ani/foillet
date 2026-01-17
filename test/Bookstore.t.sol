@@ -7,17 +7,33 @@ import "../src/Bookstore.sol";
 contract BookstoreTest is Test {
     Bookstore bs;
 
+    address owner = address(0xDEAD);
     address seller = address(0xA11CE);
     address buyer = address(0xB0B);
     address stranger = address(0xC0FFEE);
 
     function setUp() public {
         vm.txGasPrice(0);
-        bs = new Bookstore();
-
+        vm.deal(owner, 100 ether);
         vm.deal(seller, 100 ether);
         vm.deal(buyer, 100 ether);
         vm.deal(stranger, 100 ether);
+        vm.prank(owner);
+        bs = new Bookstore();
+    }
+
+    function testOwnerAndFeeLogic() public {
+        assertEq(bs.owner(), owner);
+        assertEq(bs.feeBps(), 200);
+
+        // Only owner can set fee
+        vm.prank(seller);
+        vm.expectRevert(bytes("Only owner"));
+        bs.setFeeBps(500);
+
+        vm.prank(owner);
+        bs.setFeeBps(500);
+        assertEq(bs.feeBps(), 500);
     }
 
     function testCreateAndReadBook() public {
@@ -52,13 +68,21 @@ contract BookstoreTest is Test {
         bs.createBook("T", "A", 1 ether);
 
         uint256 sellerBefore = seller.balance;
+        uint256 ownerBefore = owner.balance;
 
         vm.prank(buyer);
         bs.buyBook{value: 1 ether}(0);
 
         // Seller's balance should NOT change until withdraw
         assertEq(seller.balance, sellerBefore);
-        assertEq(bs.pendingWithdrawals(seller), 1 ether);
+        // Owner's balance should NOT change until withdraw
+        assertEq(owner.balance, ownerBefore);
+
+        // Seller gets net, owner gets fee
+        uint256 fee = (1 ether * bs.feeBps()) / 10000;
+        uint256 net = 1 ether - fee;
+        assertEq(bs.pendingWithdrawals(seller), net);
+        assertEq(bs.pendingWithdrawals(owner), fee);
 
         (,,,,, address gotBuyer, bool isSold, bool isCancelled) = bs.getBook(0);
         assertEq(gotBuyer, buyer);
@@ -68,8 +92,14 @@ contract BookstoreTest is Test {
         // Seller withdraws
         vm.prank(seller);
         bs.withdraw();
-        assertEq(seller.balance, sellerBefore + 1 ether);
+        assertEq(seller.balance, sellerBefore + net);
         assertEq(bs.pendingWithdrawals(seller), 0);
+
+        // Owner withdraws
+        vm.prank(owner);
+        bs.withdraw();
+        assertEq(owner.balance, ownerBefore + fee);
+        assertEq(bs.pendingWithdrawals(owner), 0);
     }
 
     function testBuyWrongValueReverts() public {
